@@ -1,0 +1,4 @@
+flask
+pytest
+requests
+python-jose[cryptography]
