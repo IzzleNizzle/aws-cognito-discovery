@@ -1,0 +1,38 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  IMAGE_NAME: user/app:latest
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+    environment: build
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: |
+        docker build . --file Dockerfile --tag ${{ env.IMAGE_NAME }}:$GITHUB_SHA
+        docker tag ${{ env.IMAGE_NAME }}:$GITHUB_SHA ${{ secrets.DOCKER_REGISTRY_ADDRESS }}/${{ env.IMAGE_NAME }}:$GITHUB_SHA
+        echo "FULL_IMAGE_NAME=${{ secrets.DOCKER_REGISTRY_ADDRESS }}/${{ env.IMAGE_NAME }}:$GITHUB_SHA" >> $GITHUB_ENV
+
+    - name: Login to Docker Registry
+      run: echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ secrets.DOCKER_REGISTRY_USERNAME }} --password-stdin ${{ secrets.DOCKER_REGISTRY_ADDRESS }}
+
+    - name: Push Docker Image
+      run: docker push ${{ secrets.DOCKER_REGISTRY_ADDRESS }}/${{ env.IMAGE_NAME }}:$GITHUB_SHA
+
+    - name: Deploy to CapRover
+      uses: caprover/deploy-from-github@d76580d79952f6841c453bb3ed37ef452b19752c
+      with:
+          server: ${{ secrets.CAPROVER_HOST }}
+          app: ${{ secrets.CAPROVER_APP }}
+          token: '${{ secrets.CAPROVER_APP_TOKEN }}'
+          image: '${{ env.FULL_IMAGE_NAME }}'
